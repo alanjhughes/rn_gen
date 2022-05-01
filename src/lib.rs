@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs::{self, DirEntry, File};
 use std::io::{self, Write};
 use std::path::Path;
 
@@ -49,7 +49,7 @@ fn generate_project(name: String) {
 
     for entry in entries {
         if let Ok(entry) = entry {
-            let result = match copy_dir_all(&entry.path()) {
+            let result = match copy_dir_all(&entry) {
                 Ok(()) => println!("Created"),
                 Err(err) => panic!("{}", err.kind()),
             };
@@ -59,13 +59,13 @@ fn generate_project(name: String) {
     }
 }
 
-fn copy_dir_all(path: &Path) -> io::Result<()> {
-    for entry in fs::read_dir(&path)? {
+fn copy_dir_all(entry: &DirEntry) -> io::Result<()> {
+    for entry in fs::read_dir(entry)? {
         let entry = entry?;
         let ty = entry.file_type()?;
 
         if ty.is_dir() {
-            copy_dir_all(&entry.path())?;
+            copy_dir_all(&entry)?;
         } else {
             fs::copy(entry.path(), path.join(entry.file_name()))?;
         }
