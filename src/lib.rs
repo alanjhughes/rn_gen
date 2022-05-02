@@ -1,5 +1,5 @@
-use std::fs;
-use std::path::Path;
+use std::fs::{self, ReadDir};
+use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 
@@ -33,40 +33,44 @@ pub fn run() {
 }
 
 fn generate_project(name: String) {
-    let path = Path::new("generate");
-
     println!("Creating a new project: {}", name);
+    let path = Path::new("generate");
+    let target = Path::new(&name);
+    create_dir(&target.to_path_buf(), &path.to_path_buf());
+}
 
-    let new_dir = Path::new(&name);
-    create_dir(&new_dir);
+fn copy_file(from: PathBuf, to: PathBuf) {
+    match fs::copy(from, to) {
+        Ok(res) => {
+            println!("{} has been copied!", res)
+        }
+        Err(err) => println!("{} failed to copy", err.kind()),
+    }
+}
 
-    let entries = match fs::read_dir(&path) {
-        Err(err) => panic!("Failed to read {:?}", err.kind()),
-        Ok(entries) => entries,
-    };
+fn create_dir(new_dir: &Path, parent: &Path) {
+    match fs::create_dir(&new_dir) {
+        Err(err) => println!("Failed to create directory: {}", err.kind()),
+        Ok(()) => println!("Directory created"),
+    }
+    let entries = get_dir_entries(parent);
 
     for entry in entries {
         if let Ok(entry) = entry {
             let metadata = entry.metadata().unwrap();
             if metadata.is_dir() {
                 let dir_path = new_dir.join(entry.file_name());
-                create_dir(&dir_path);
+                create_dir(&dir_path.to_path_buf(), &entry.path());
             } else {
-                println!("{:?}: {:?} ", entry.path(), new_dir.join(entry.file_name()));
-                match fs::copy(entry.path(), new_dir.join(entry.file_name())) {
-                    Ok(res) => {
-                        println!("{:?} has been copied!: Result: {}", entry.file_name(), res)
-                    }
-                    Err(err) => println!("{:?} failed to copy", err.kind()),
-                }
+                copy_file(entry.path(), new_dir.join(entry.file_name()));
             }
         }
     }
 }
 
-fn create_dir(name: &Path) {
-    match fs::create_dir(name) {
-        Err(err) => println!("Failed to create directory: {:?}", err.kind()),
-        Ok(()) => println!("Directory created: {:?}", name),
+fn get_dir_entries(path: &Path) -> ReadDir {
+    match fs::read_dir(path) {
+        Err(err) => panic!("Failed to read {}", err.kind()),
+        Ok(entries) => entries,
     }
 }
